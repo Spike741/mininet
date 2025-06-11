@@ -1,0 +1,194 @@
+8. Throughput Degradation During Handover
+Goal: Measure how throughput drops during handover between APs.
+
+Steps:
+Setup:
+
+Create 2 APs (ap1, ap2) and 1 mobile station (sta1).
+
+Place ap1 at position A, ap2 at position B.
+
+Place sta1 initially near ap1.
+
+Start Mobility:
+
+Use net.startMobility()
+
+Move sta1 from near ap1 to ap2 over time (simulate motion).
+
+Iperf Setup:
+
+On ap2 or a wired host: iperf -s -i 1 > udp_server.txt &
+
+On sta1: iperf -c <ap2_ip> -u -b 5M -t 30 -i 1 > udp_client.txt &
+
+Log Results:
+
+Wait for mobility to finish.
+
+Plot throughput over time using udp_client.txt.
+
+9. Impact of Handover on Video Streaming
+Goal: Observe how video streaming gets interrupted during handover.
+
+Steps:
+Setup VLC Streaming Server:
+
+On ap2 or a host: run a VLC server streaming over UDP.
+Example:
+
+bash
+Copy
+Edit
+cvlc -vvv /path/to/video.mp4 --sout '#udp{dst=10.0.0.1:1234}' --loop
+On Station (sta1):
+
+Use VLC to receive:
+
+bash
+Copy
+Edit
+cvlc udp://@:1234
+Start Movement:
+
+Move sta1 from ap1 range to ap2 using net.mobility()
+
+Observation:
+
+Watch for freezes/buffering in video.
+
+Use Wireshark or ping during stream for packet loss tracking.
+
+10. Forced Handover by Manipulating Signal Strength
+Goal: Manually reduce AP1's signal to trigger roaming to AP2.
+
+Steps:
+Setup:
+
+ap1, ap2, and sta1.
+
+Initial Association:
+
+Keep sta1 close to ap1, ensure it connects to ap1.
+
+Gradually Reduce txpower:
+
+python
+Copy
+Edit
+ap1.setTxPower(10, intf='ap1-wlan1')
+sleep(5)
+ap1.setTxPower(5, intf='ap1-wlan1')
+sleep(5)
+ap1.setTxPower(1, intf='ap1-wlan1')
+Force Roam:
+
+As signal drops, station should handover to ap2.
+
+Monitor:
+
+Log iw dev sta1-wlan0 link
+
+Check ping or iperf continuity and delay.
+
+11. Multi-AP Handover Analysis
+Goal: See how handover occurs across multiple APs.
+
+Steps:
+Setup:
+
+Create ap1, ap2, ap3 in a line.
+
+Use positions like:
+
+ap1: (100, 100, 0)
+
+ap2: (300, 100, 0)
+
+ap3: (500, 100, 0)
+
+Place sta1 at (50, 100, 0)
+
+Mobility Path:
+
+python
+Copy
+Edit
+net.startMobility(time=0)
+net.mobility(sta1, 'start', time=1, position='50,100,0')
+net.mobility(sta1, 'stop', time=30, position='550,100,0')
+net.stopMobility(time=31)
+Continuous Ping:
+
+sta1.cmd('ping 10.0.0.X -i 0.2 > ping_log.txt &') (where X is one AP or a central server)
+
+Capture Roaming:
+
+Use CLI or code: sta1.cmd('iw dev sta1-wlan0 link') at intervals.
+
+Monitor ping_log.txt for packet loss or high delay.
+
+Plot or Analyze:
+
+Plot delay and loss using logs.
+
+Compare handover times and if sta1 always connects to nearest AP.
+
+
+mobility
+
+#!/usr/bin/python
+
+from mininet.node import Controller
+from mininet.log import setLogLevel, info
+from mn_wifi.net import Mininet_wifi
+from mn_wifi.node import OVSKernelAP
+from mn_wifi.cli import CLI
+from mn_wifi.link import wmediumd
+from mn_wifi.wmediumdConnector import interference
+from time import sleep
+
+def topology():
+    net = Mininet_wifi(controller=Controller,
+                       link=wmediumd,
+                       wmediumd_mode=interference)
+
+    info("*** Creating nodes\n")
+    sta1 = net.addStation('sta1', ip='10.0.0.1', position='50,100,0')
+    ap1 = net.addAccessPoint('ap1', ssid='ap1-ssid', mode='g', channel='1',
+                             position='100,100,0', range=100)
+    ap2 = net.addAccessPoint('ap2', ssid='ap2-ssid', mode='g', channel='1',
+                             position='400,100,0', range=100)
+    c0 = net.addController('c0')
+
+    info("*** Configuring WiFi nodes\n")
+    net.setPropagationModel(model="logDistance", exp=4)
+    net.configureWifiNodes()
+    net.plotGraph(max_x=500, max_y=300)
+
+    info("*** Starting network\n")
+    net.build()
+    c0.start()
+    ap1.start([])
+    ap2.start([])
+
+    info("*** Starting mobility\n")
+    net.startMobility(time=0)
+    net.mobility(sta1, 'start', time=1, position='50,100,0')  # near ap1
+    net.mobility(sta1, 'stop', time=20, position='450,100,0')  # near ap2
+    net.stopMobility(time=21)
+
+    info("*** Starting ping to ap2 (to observe delay/loss during handover)\n")
+    sta1.cmd('ping 10.0.0.253 -i 0.5 -c 50 > ping_log.txt &')  # ap2 IP
+
+    sleep(30)  # allow mobility and ping to finish
+
+    info("*** Running CLI\n")
+    CLI(net)
+
+    info("*** Stopping network\n")
+    net.stop()
+
+if __name__ == '__main__':
+    setLogLevel('info')
+    topology()
