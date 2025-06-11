@@ -1,0 +1,8 @@
+sudo tc qdisc add dev sta1-wlan0 root tbf rate 54mbit burst 10kb latency 70ms
+sudo tc qdisc add dev sta2-wlan0 root tbf rate 54mbit burst 10kb latency 70ms
+sudo tc qdisc add dev ap1-wlan1 root tbf rate 54mbit burst 10kb latency 70ms
+
+tc qdisc show 
+tc qdisc show 
+
+
