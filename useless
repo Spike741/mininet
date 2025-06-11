@@ -192,3 +192,27 @@ def topology():
 if __name__ == '__main__':
     setLogLevel('info')
     topology()
+
+
+import matplotlib.pyplot as plt
+
+# Manually input time and throughput data
+time = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+throughput = [4.8, 4.7, 4.6, 2.1, 0.5, 1.0, 3.2, 4.5, 4.6, 4.7]
+
+# Plot
+plt.figure(figsize=(10, 6))
+plt.plot(time, throughput, marker='o', linestyle='-', color='blue')
+
+# Labels and title
+plt.title("Manual Throughput During Handover")
+plt.xlabel("Time (seconds)")
+plt.ylabel("Throughput (Mbps)")
+plt.grid(True)
+
+# Optional: highlight handover window
+plt.axvspan(4, 7, color='red', alpha=0.1, label='Handover Period')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
